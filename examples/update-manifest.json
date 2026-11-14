@@ -1,0 +1,12 @@
+{
+    "name": "Acme Pro",
+    "version": "1.1.0",
+    "download_url": "https://updates.example.com/download.php",
+    "homepage": "https://example.com/acme-pro",
+    "requires": "6.4",
+    "tested": "6.8",
+    "requires_php": "7.4",
+    "last_updated": "2026-11-13",
+    "description": "<p>Pro features for Acme.</p>",
+    "changelog": "<h4>1.1.0</h4><ul><li>New: something useful.</li><li>Fix: something broken.</li></ul>"
+}
