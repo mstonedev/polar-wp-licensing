@@ -29,16 +29,19 @@ final class Licensing {
 	private ?AdminPage $admin_page = null;
 	private ?Updater $updater      = null;
 	private string $cron_hook;
+	private bool $sandbox = false;
 
 	/**
 	 * @param array $config {
 	 *     @type string       $plugin_file         Required. Main plugin file (__FILE__).
-	 *     @type string       $organization_id     Required. Your Polar organization ID.
+	 *     @type string       $organization_id     Required. Your LIVE Polar organization ID.
+	 *     @type string       $benefit_id          Your LIVE License Keys benefit ID. Recommended if you sell more than one product.
+	 *     @type array        $sandbox             Optional. Your SANDBOX settings: array( 'organization_id' => ..., 'benefit_id' => ...,
+	 *                                             'update_manifest_url' => ... ). Only used on a site where sandbox mode is
+	 *                                             turned on (see sandbox_requested()). update_manifest_url falls back to the live one.
 	 *     @type string       $slug                Defaults to the plugin folder name.
 	 *     @type string       $name                Defaults to the "Plugin Name" header.
 	 *     @type string       $version             Defaults to the "Version" header.
-	 *     @type string       $benefit_id          Polar license key benefit ID. Set it if you sell more than one product.
-	 *     @type bool         $sandbox             Use sandbox-api.polar.sh. Default false.
 	 *     @type string       $update_manifest_url Enables updates when set.
 	 *     @type string|false $menu_parent         Admin page parent. Default 'options-general.php'; false = no page.
 	 *     @type string       $purchase_url        "Buy a license" link (e.g. a Polar checkout link).
@@ -74,14 +77,26 @@ final class Licensing {
 		$name    = (string) ( $config['name'] ?? $headers['Name'] );
 		$version = (string) ( $config['version'] ?? $headers['Version'] );
 
-		$this->warn_about_bad_ids( $name, $config );
+		// Live IDs everywhere, unless this site has opted into sandbox mode (developer machines only).
+		$env           = self::resolve_environment( $config, self::sandbox_requested( $slug ) );
+		$this->sandbox = $env['sandbox'];
 
-		$api = new ApiClient( (string) $config['organization_id'], ! empty( $config['sandbox'] ) );
+		$this->warn_about_config( $name, $config, $env );
+
+		$api = new ApiClient( $env['organization_id'], $env['sandbox'] );
 
 		$this->license = new License(
 			$slug,
 			$api,
-			array_intersect_key( $config, array_flip( array( 'benefit_id', 'grace_period', 'check_interval' ) ) )
+			array_merge(
+				array_intersect_key( $config, array_flip( array( 'grace_period', 'check_interval' ) ) ),
+				array(
+					'benefit_id'    => $env['benefit_id'],
+					// Sandbox and live licenses are stored separately, so switching modes
+					// never mixes a test key into the real license (or the other way round).
+					'option_suffix' => $env['sandbox'] ? '_sandbox' : '',
+				)
+			)
 		);
 
 		// Background re-check, so revoked/refunded licenses stop working without anyone visiting the license screen.
@@ -91,50 +106,130 @@ final class Licensing {
 		register_deactivation_hook( $plugin_file, array( $this, 'unschedule_check' ) );
 
 		if ( is_admin() ) {
-			$this->admin_page = new AdminPage( $this->license, $plugin_file, $name, $config );
+			$this->admin_page = new AdminPage( $this->license, $plugin_file, $name, array_merge( $config, array( 'sandbox_mode' => $env['sandbox'] ) ) );
 			$this->admin_page->register();
 		}
 
-		if ( ! empty( $config['update_manifest_url'] ) ) {
-			$this->updater = new Updater( $plugin_file, $version, (string) $config['update_manifest_url'], $this->license );
+		if ( $env['update_manifest_url'] ) {
+			$this->updater = new Updater( $plugin_file, $version, $env['update_manifest_url'], $this->license );
 			$this->updater->register();
 		}
 	}
 
 	/**
-	 * Polar IDs are UUIDs. A common setup mistake is pasting the organization's slug or
-	 * a product name instead; Polar then answers every request with a confusing
-	 * "Input should be a valid UUID" error. Catch it here with a clear admin notice.
+	 * Is sandbox mode turned on for this site?
+	 *
+	 * On by defining POLARWP_SANDBOX as true in wp-config.php. That file is per site
+	 * and never ships with your plugin, so customers' sites always stay on live Polar.
+	 * The filter lets you switch one plugin only, or decide in code.
 	 */
-	private function warn_about_bad_ids( string $plugin_name, array $config ): void {
-		$labels = array(
-			'organization_id' => 'Organization ID (Polar → Settings → General)',
-			'benefit_id'      => 'License Keys benefit ID',
+	public static function sandbox_requested( string $slug ): bool {
+		$requested = defined( 'POLARWP_SANDBOX' ) && POLARWP_SANDBOX;
+
+		/**
+		 * @param bool   $requested Whether to use the sandbox IDs and sandbox-api.polar.sh.
+		 * @param string $slug      The plugin's slug.
+		 */
+		return (bool) apply_filters( 'polarwp_sandbox', $requested, $slug );
+	}
+
+	/**
+	 * Pick the IDs and API host to use. Pure function, so it is easy to test.
+	 *
+	 * @return array{sandbox: bool, organization_id: string, benefit_id: ?string, update_manifest_url: ?string, problem: string}
+	 */
+	public static function resolve_environment( array $config, bool $sandbox_requested ): array {
+		$live = array(
+			'sandbox'         => false,
+			'organization_id' => (string) $config['organization_id'],
+			'benefit_id'          => empty( $config['benefit_id'] ) ? null : (string) $config['benefit_id'],
+			'update_manifest_url' => empty( $config['update_manifest_url'] ) ? null : (string) $config['update_manifest_url'],
+			'problem'             => '',
 		);
 
-		$bad = array();
-		foreach ( $labels as $option => $label ) {
-			if ( ! empty( $config[ $option ] ) && ! self::is_uuid( (string) $config[ $option ] ) ) {
-				$bad[] = sprintf( '%s: "%s"', $label, (string) $config[ $option ] );
-			}
+		if ( ! $sandbox_requested ) {
+			return $live;
 		}
 
-		if ( ! $bad ) {
+		$sandbox = $config['sandbox'] ?? null;
+
+		if ( ! is_array( $sandbox ) || empty( $sandbox['organization_id'] ) ) {
+			// Fail safe: without sandbox IDs, stay on live rather than sending live IDs to the sandbox API.
+			$live['problem'] = __( "Sandbox mode is on, but this plugin has no sandbox IDs configured (the 'sandbox' option), so it is still using live Polar.", 'polarwp-licensing' );
+			return $live;
+		}
+
+		return array(
+			'sandbox'         => true,
+			'organization_id' => (string) $sandbox['organization_id'],
+			'benefit_id'          => empty( $sandbox['benefit_id'] ) ? null : (string) $sandbox['benefit_id'],
+			// A separate test manifest lets you point downloads at a test download server.
+			'update_manifest_url' => empty( $sandbox['update_manifest_url'] ) ? $live['update_manifest_url'] : (string) $sandbox['update_manifest_url'],
+			'problem'             => '',
+		);
+	}
+
+	public function is_sandbox(): bool {
+		return $this->sandbox;
+	}
+
+	/**
+	 * Admin notices for setup mistakes, and a reminder whenever sandbox mode is on.
+	 *
+	 * Polar IDs are UUIDs. A common mistake is pasting the organization's slug or a
+	 * product name instead; Polar then answers every request with a confusing
+	 * "Input should be a valid UUID" error. Catch it here with a clear message.
+	 */
+	private function warn_about_config( string $plugin_name, array $config, array $env ): void {
+		$messages = array();
+
+		$ids = array(
+			'organization_id' => $config['organization_id'] ?? '',
+			'benefit_id'      => $config['benefit_id'] ?? '',
+		);
+		if ( isset( $config['sandbox'] ) && is_array( $config['sandbox'] ) ) {
+			$ids['sandbox.organization_id'] = $config['sandbox']['organization_id'] ?? '';
+			$ids['sandbox.benefit_id']      = $config['sandbox']['benefit_id'] ?? '';
+		} elseif ( isset( $config['sandbox'] ) ) {
+			$messages[] = __( "The 'sandbox' option must be an array of sandbox IDs: array( 'organization_id' => ..., 'benefit_id' => ... ).", 'polarwp-licensing' );
+		}
+
+		$bad = array();
+		foreach ( $ids as $option => $value ) {
+			if ( '' !== (string) $value && ! self::is_uuid( (string) $value ) ) {
+				$bad[] = sprintf( '%s: "%s"', $option, (string) $value );
+			}
+		}
+		if ( $bad ) {
+			$messages[] = __( 'These Polar settings should be IDs that look like 1f3c9a2e-7b4d-4c1a-9e8f-2a6b5c4d3e21, not names or slugs:', 'polarwp-licensing' ) . ' ' . implode( ', ', $bad );
+		}
+
+		if ( $env['problem'] ) {
+			$messages[] = $env['problem'];
+		}
+
+		$sandbox = $env['sandbox'];
+
+		if ( ! $messages && ! $sandbox ) {
 			return;
 		}
 
 		add_action(
 			'admin_notices',
-			static function () use ( $plugin_name, $bad ) {
+			static function () use ( $plugin_name, $messages, $sandbox ) {
 				if ( ! current_user_can( 'manage_options' ) ) {
 					return;
 				}
-				printf(
-					'<div class="notice notice-error"><p><strong>%s:</strong> %s</p><ul style="list-style:disc;padding-left:2em">%s</ul></div>',
-					esc_html( $plugin_name ),
-					esc_html__( 'These Polar settings should be IDs that look like 1f3c9a2e-7b4d-4c1a-9e8f-2a6b5c4d3e21, not names or slugs:', 'polarwp-licensing' ),
-					implode( '', array_map( static function ( $line ) { return '<li>' . esc_html( $line ) . '</li>'; }, $bad ) )
-				);
+				foreach ( $messages as $message ) {
+					printf( '<div class="notice notice-error"><p><strong>%s:</strong> %s</p></div>', esc_html( $plugin_name ), esc_html( $message ) );
+				}
+				if ( $sandbox ) {
+					printf(
+						'<div class="notice notice-warning"><p><strong>%s:</strong> %s</p></div>',
+						esc_html( $plugin_name ),
+						esc_html__( 'Polar sandbox mode is on. Only test license keys work here. To use live Polar, remove POLARWP_SANDBOX from wp-config.php (or the polarwp_sandbox filter).', 'polarwp-licensing' )
+					);
+				}
 			}
 		);
 	}

@@ -1,34 +1,20 @@
 <?php
 /**
- * Plugin Name: Acme Pro (Polar licensing test)
+ * Plugin Name: Acme Pro (Polar licensing example)
  * Description: Example plugin showing how to sell a WordPress plugin with Polar license keys.
  * Version:     1.0.0
  * Author:      Acme
  * Requires PHP: 7.4
  *
- * Configure it by adding these to wp-config.php (above "That's all, stop editing!"):
+ * To try it: replace the four placeholder IDs below with your own, then add
  *
- *     define( 'ACME_POLAR_ORG_ID', 'your-polar-organization-id' );
- *     define( 'ACME_POLAR_BENEFIT_ID', 'your-license-key-benefit-id' ); // optional
- *     define( 'ACME_POLAR_SANDBOX', true );                              // false for live keys
- *     define( 'ACME_UPDATE_MANIFEST_URL', 'https://...' );               // optional
+ *     define( 'POLARWP_SANDBOX', true );
+ *
+ * to the wp-config.php of your local test site so it uses your sandbox IDs.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
-}
-
-if ( ! defined( 'ACME_POLAR_ORG_ID' ) || '' === ACME_POLAR_ORG_ID ) {
-	add_action(
-		'admin_notices',
-		static function () {
-			if ( ! current_user_can( 'manage_options' ) ) {
-				return;
-			}
-			echo '<div class="notice notice-warning"><p><strong>Acme Pro:</strong> add <code>define( \'ACME_POLAR_ORG_ID\', \'your-org-id\' );</code> to wp-config.php to enable licensing.</p></div>';
-		}
-	);
-	return;
 }
 
 require_once __DIR__ . '/vendor/polar-wp-licensing/polar-wp-licensing.php';
@@ -36,15 +22,40 @@ require_once __DIR__ . '/vendor/polar-wp-licensing/polar-wp-licensing.php';
 $acme_licensing = \PolarWP\Licensing\Licensing::register(
 	array(
 		'plugin_file'         => __FILE__,
-		'organization_id'     => ACME_POLAR_ORG_ID,
-		'benefit_id'          => defined( 'ACME_POLAR_BENEFIT_ID' ) ? ACME_POLAR_BENEFIT_ID : null,
-		'sandbox'             => defined( 'ACME_POLAR_SANDBOX' ) ? (bool) ACME_POLAR_SANDBOX : true,
-		'update_manifest_url' => defined( 'ACME_UPDATE_MANIFEST_URL' ) ? ACME_UPDATE_MANIFEST_URL : null,
-		'menu_parent'         => 'options-general.php',
+
+		// LIVE IDs, from polar.sh. Every customer's site uses these.
+		// None of these IDs are secret; it's normal for them to ship in your plugin.
+		'organization_id'     => 'LIVE-ORGANIZATION-ID',    // Settings → General → Organization ID
+		'benefit_id'          => 'LIVE-LICENSE-BENEFIT-ID', // Your product's License Keys benefit
+
+		// SANDBOX IDs, from sandbox.polar.sh. Only used on a site whose wp-config.php
+		// defines POLARWP_SANDBOX as true, i.e. your own development site.
+		'sandbox'             => array(
+			'organization_id' => 'SANDBOX-ORGANIZATION-ID',
+			'benefit_id'      => 'SANDBOX-LICENSE-BENEFIT-ID',
+			// Optional: a test manifest whose download_url points at a sandbox copy of download.php.
+			'update_manifest_url' => 'https://updates.example.com/acme-pro-test.json',
+		),
+
+		'update_manifest_url' => 'https://updates.example.com/acme-pro.json',
+		'purchase_url'        => 'https://buy.polar.sh/YOUR-CHECKOUT-LINK',
+		'portal_url'          => 'https://polar.sh/YOUR-ORG/portal',
 	)
 );
 
-// Visible proof that gating works: a notice on the Dashboard that changes with the license.
+// Gate Pro features. is_valid() only reads a stored option, so it's cheap anywhere.
+add_action(
+	'init',
+	static function () use ( $acme_licensing ) {
+		if ( ! $acme_licensing->is_valid() ) {
+			return;
+		}
+
+		// Register Pro-only blocks, elements, settings...
+	}
+);
+
+// Visible proof that gating works: a Dashboard notice that changes with the license.
 add_action(
 	'admin_notices',
 	static function () use ( $acme_licensing ) {
@@ -64,6 +75,3 @@ add_action(
 		}
 	}
 );
-
-// In a real plugin you might treat local dev sites as licensed. Left off here so you can test:
-// add_filter( 'polarwp_license_is_valid', fn( $valid ) => $valid || 'local' === wp_get_environment_type() );

@@ -25,6 +25,7 @@ final class AdminPage {
 	private string $page_slug;
 	private string $purchase_url;
 	private string $portal_url;
+	private bool $sandbox_mode;
 
 	public function __construct( License $license, string $plugin_file, string $plugin_name, array $args = array() ) {
 		$this->license      = $license;
@@ -34,6 +35,7 @@ final class AdminPage {
 		$this->page_slug    = $license->slug() . '-license';
 		$this->purchase_url = (string) ( $args['purchase_url'] ?? '' );
 		$this->portal_url   = (string) ( $args['portal_url'] ?? '' );
+		$this->sandbox_mode = ! empty( $args['sandbox_mode'] );
 	}
 
 	public function register(): void {
@@ -89,6 +91,14 @@ final class AdminPage {
 		$state  = $this->license->state();
 		$status = $this->license->status();
 		$has    = '' !== $state['key'];
+
+		if ( $this->sandbox_mode ) {
+			printf(
+				'<p><span style="background:#dba617;color:#fff;border-radius:3px;padding:2px 8px;font-weight:600">%s</span> %s</p>',
+				esc_html__( 'SANDBOX', 'polarwp-licensing' ),
+				esc_html__( 'Use a test key from sandbox.polar.sh. A key entered here is stored separately from the live license.', 'polarwp-licensing' )
+			);
+		}
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="<?php echo esc_attr( $this->action() ); ?>">

@@ -9,9 +9,11 @@ require __DIR__ . '/../src/ApiResponse.php';
 require __DIR__ . '/../src/ApiClient.php';
 require __DIR__ . '/../src/License.php';
 require __DIR__ . '/../src/Updater.php';
+require __DIR__ . '/../src/Licensing.php';
 
 use PolarWP\Licensing\ApiClient;
 use PolarWP\Licensing\License;
+use PolarWP\Licensing\Licensing;
 use PolarWP\Licensing\Updater;
 
 $now   = strtotime( '2026-11-13 12:00:00 UTC' );
@@ -201,6 +203,40 @@ check_that( 'up to date: listed under no_update', empty( $transient->response ) 
 $info = $updater->plugin_information( false, 'plugin_information', (object) array( 'slug' => 'acme-pro' ) );
 check_that( 'details modal has changelog', is_object( $info ) && false !== strpos( $info->sections['changelog'], '1.1.0' ) );
 check_that( 'other plugins untouched', false === $updater->plugin_information( false, 'plugin_information', (object) array( 'slug' => 'other' ) ) );
+
+echo "\nLive vs sandbox IDs\n";
+$live_org = '11111111-1111-4111-8111-111111111111';
+$sb_org   = '22222222-2222-4222-8222-222222222222';
+$config   = array(
+	'organization_id' => $live_org,
+	'benefit_id'      => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+	'sandbox'         => array(
+		'organization_id' => $sb_org,
+		'benefit_id'      => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+	),
+);
+$env = Licensing::resolve_environment( $config, false );
+check_that( 'sandbox off: live IDs', ! $env['sandbox'] && $live_org === $env['organization_id'] && 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' === $env['benefit_id'] );
+$env = Licensing::resolve_environment( $config, true );
+check_that( 'sandbox on: sandbox IDs', $env['sandbox'] && $sb_org === $env['organization_id'] && 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' === $env['benefit_id'] );
+$env = Licensing::resolve_environment( array( 'organization_id' => $live_org ), true );
+check_that( 'sandbox on but no sandbox IDs: stays live, reports problem', ! $env['sandbox'] && $live_org === $env['organization_id'] && '' !== $env['problem'] );
+$config['update_manifest_url'] = 'https://updates.example.com/live.json';
+check_that( 'sandbox without its own manifest: uses live manifest', 'https://updates.example.com/live.json' === Licensing::resolve_environment( $config, true )['update_manifest_url'] );
+$config['sandbox']['update_manifest_url'] = 'https://updates.example.com/test.json';
+check_that( 'sandbox manifest used in sandbox mode', 'https://updates.example.com/test.json' === Licensing::resolve_environment( $config, true )['update_manifest_url'] );
+check_that( 'live manifest used in live mode', 'https://updates.example.com/live.json' === Licensing::resolve_environment( $config, false )['update_manifest_url'] );
+check_that( 'no benefit id: null', null === Licensing::resolve_environment( array( 'organization_id' => $live_org ), false )['benefit_id'] );
+
+$GLOBALS['options'] = array();
+$live_license       = new License( 'acme-pro', new ApiClient( $live_org ), array( 'clock' => $clock ) );
+$sandbox_license    = new License( 'acme-pro', new ApiClient( $sb_org, true ), array( 'clock' => $clock, 'option_suffix' => '_sandbox' ) );
+respond( 200, granted() );
+$sandbox_license->activate( 'TEST-KEY' );
+check_that( 'sandbox key stored separately', 'polarwp_license_acme-pro_sandbox' === $sandbox_license->option_name() && $sandbox_license->is_valid() );
+check_that( 'live license untouched by sandbox key', License::STATUS_INACTIVE === $live_license->status() );
+check_that( 'sandbox client uses sandbox API', str_starts_with( end( $GLOBALS['http_log'] )['url'], 'https://sandbox-api.polar.sh/' ) );
+check_that( 'sandbox client sends sandbox org id', $sb_org === end( $GLOBALS['http_log'] )['body']['organization_id'] );
 
 echo "\n$passed passed, $failed failed\n";
 exit( $failed ? 1 : 0 );

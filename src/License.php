@@ -29,6 +29,9 @@ final class License {
 	private ApiClient $api;
 	private ?string $benefit_id;
 
+	/** '_sandbox' in sandbox mode, so test and live licenses are stored separately. */
+	private string $option_suffix;
+
 	/** How long a valid license stays valid while Polar can't be reached. */
 	private int $grace_period;
 
@@ -42,6 +45,7 @@ final class License {
 		$this->slug           = $slug;
 		$this->api            = $api;
 		$this->benefit_id     = isset( $args['benefit_id'] ) ? (string) $args['benefit_id'] : null;
+		$this->option_suffix  = isset( $args['option_suffix'] ) ? (string) $args['option_suffix'] : '';
 		$this->grace_period   = isset( $args['grace_period'] ) ? (int) $args['grace_period'] : 14 * DAY_IN_SECONDS;
 		$this->check_interval = isset( $args['check_interval'] ) ? (int) $args['check_interval'] : DAY_IN_SECONDS;
 		$this->clock          = isset( $args['clock'] ) && is_callable( $args['clock'] ) ? $args['clock'] : 'time';
@@ -52,7 +56,7 @@ final class License {
 	}
 
 	public function option_name(): string {
-		return 'polarwp_license_' . $this->slug;
+		return 'polarwp_license_' . $this->slug . $this->option_suffix;
 	}
 
 	/* ------------------------------------------------------------------ */
