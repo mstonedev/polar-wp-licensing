@@ -82,7 +82,7 @@ That gives you four IDs: a live pair and a sandbox pair. Each one is a long ID l
 
 ## Usage
 
-Put **both** pairs of IDs in your plugin's code:
+Call `register()` once, in **your plugin's main file**: the PHP file with the `Plugin Name:` header, such as `acme-pro/acme-pro.php`. Put **both** pairs of Polar IDs in that call:
 
 ```php
 require_once __DIR__ . '/vendor/autoload.php'; // or the loader file; see Installation
@@ -112,18 +112,20 @@ if ( $licensing->is_valid() ) {
 }
 ```
 
+Don't put IDs in the library's own files (`src/`). The library holds no IDs, so it works with any Polar account, and you can update it without losing your settings.
+
 This adds **Settings → Acme Pro License** and a "License" link on the Plugins screen. To put the form on your own settings page instead, pass `'menu_parent' => false` and call `$licensing->render_license_form()`.
 
 See `examples/acme-pro/acme-pro.php` for a complete example.
 
 ## Live and sandbox: what goes where
 
-The short version: **your plugin's code holds the IDs, `wp-config.php` only holds the sandbox switch, and customers only ever enter a license key.**
+The short version: **your plugin's main file holds the IDs (in the `register()` call), `wp-config.php` only holds the sandbox switch, and customers only ever enter a license key.**
 
 | What | Where it goes | Who sets it |
 |---|---|---|
-| Live organization ID and benefit ID | Your plugin's code (`organization_id`, `benefit_id`) | You, once |
-| Sandbox organization ID and benefit ID | Your plugin's code (`sandbox` array) | You, once |
+| Live organization ID and benefit ID | Your plugin's main file, in `register()`: `organization_id`, `benefit_id` | You, once |
+| Sandbox organization ID and benefit ID | Your plugin's main file, in `register()`: the `sandbox` array | You, once |
 | Sandbox switch: `define( 'POLARWP_SANDBOX', true );` | `wp-config.php` of **your own** dev site | You, only on your dev site |
 | License key | **Settings → *Your Plugin* License** | Each customer |
 
