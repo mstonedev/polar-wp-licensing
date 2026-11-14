@@ -186,7 +186,7 @@ respond( 200, array( 'id' => 'act_9' ) );
 $license->activate( 'ABCD-1234' );
 $GLOBALS['transients'] = array();
 $updater  = new Updater( '/plugins/acme-pro/acme-pro.php', '1.0.0', 'https://updates.example.com/acme-pro.json', $license );
-$manifest = json_decode( file_get_contents( __DIR__ . '/../examples/update-manifest.json' ), true );
+$manifest = json_decode( file_get_contents( __DIR__ . '/../examples/update-server/acme-pro.json' ), true );
 respond( 200, $manifest );
 $transient = $updater->inject_update( (object) array( 'response' => array() ) );
 $item      = $transient->response['acme-pro/acme-pro.php'] ?? null;

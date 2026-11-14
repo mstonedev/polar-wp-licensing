@@ -18,7 +18,7 @@ Customer buys on Polar ──► Polar emails a license key (License Keys benefi
                                    │
 WordPress site ── activate/validate ──► api.polar.sh/v1/customer-portal/license-keys/*
        │
-       └─ update check ──► your update-manifest.json
+       └─ update check ──► your manifest JSON
        └─ download ──► your download.php ── validate ──► Polar ──► streams the zip
 ```
 
@@ -185,9 +185,26 @@ Two more details:
 
 ## Updates
 
-1. Host a manifest like `examples/update-manifest.json`. `version` and `download_url` are required.
+1. Host a manifest like `examples/update-server/acme-pro.json` (field reference below). `version` and `download_url` are required.
 2. Host `examples/update-server/download.php` (or the equivalent in your stack) at the `download_url`. It checks the key with Polar before streaming the zip. Keep the zip outside the web root.
 3. To release a new version, upload the new zip and bump `version` in the manifest.
+
+### Manifest fields
+
+| Field | Required | What it's for |
+|---|---|---|
+| `version` | yes | The latest version. Sites on an older version see "Update available". |
+| `download_url` | yes | Your `download.php`. The library adds the license key to it. |
+| `name` | no | Plugin name in the "View details" window. |
+| `homepage` | no | Link from the Plugins screen and "View details". |
+| `requires` | no | Minimum WordPress version. |
+| `tested` | no | Newest WordPress version you've tested with. Keep it current, or WordPress warns customers. |
+| `requires_php` | no | Minimum PHP version. WordPress won't update sites running older PHP. |
+| `last_updated` | no | Release date, shown in "View details". |
+| `description` | no | HTML for the "Description" tab of "View details". |
+| `changelog` | no | HTML for the "Changelog" tab. Newest version first. |
+
+The manifest is public, and it should be: it only describes the release. The zip itself is protected by `download.php`. `examples/update-server/acme-pro-test.json` is the sandbox version, pointing at a test copy of `download.php` (see below).
 
 **How fast sites see an update:** WordPress checks for updates about every 12 hours, and the library also caches your manifest for up to 12 hours. So a release can take up to about a day to show up everywhere. On a site you control, click **Dashboard → Updates → Check again** to look straight away.
 

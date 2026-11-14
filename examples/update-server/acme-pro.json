@@ -6,7 +6,7 @@
     "requires": "6.4",
     "tested": "6.8",
     "requires_php": "7.4",
-    "last_updated": "2026-11-13",
+    "last_updated": "2026-11-14",
     "description": "<p>Pro features for Acme.</p>",
-    "changelog": "<h4>1.1.0</h4><ul><li>New: something useful.</li><li>Fix: something broken.</li></ul>"
+    "changelog": "<h4>1.1.0</h4><ul><li>New: something useful.</li><li>Fix: something broken.</li></ul><h4>1.0.0</h4><ul><li>First release.</li></ul>"
 }

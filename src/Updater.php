@@ -2,7 +2,7 @@
 /**
  * Delivers plugin updates from your own JSON manifest, only to licensed sites.
  *
- * The manifest is a small JSON file you host anywhere (see examples/update-manifest.json).
+ * The manifest is a small JSON file you host anywhere (see examples/update-server/acme-pro.json).
  * Unlicensed sites still SEE that an update exists (WordPress shows "Automatic update
  * is unavailable for this plugin"), which is a gentle nudge to renew.
  *
