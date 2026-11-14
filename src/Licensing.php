@@ -3,13 +3,27 @@
  * Entry point: one call wires up the license, the license screen, background
  * checks and updates for a plugin.
  *
+ * Call it once, in your plugin's main file:
+ *
  *     $licensing = \PolarWP\Licensing\Licensing::register( array(
  *         'plugin_file'         => __FILE__,
- *         'organization_id'     => 'your-polar-organization-id',
- *         'update_manifest_url' => 'https://example.com/updates/my-plugin.json',
+ *
+ *         // Live IDs (polar.sh). Used on every customer's site.
+ *         'organization_id'     => 'your-live-organization-id',
+ *         'benefit_id'          => 'your-live-license-keys-benefit-id',
+ *
+ *         // Sandbox IDs (sandbox.polar.sh). Only used where POLARWP_SANDBOX is true.
+ *         'sandbox'             => array(
+ *             'organization_id' => 'your-sandbox-organization-id',
+ *             'benefit_id'      => 'your-sandbox-license-keys-benefit-id',
+ *         ),
+ *
+ *         'update_manifest_url' => 'https://updates.example.com/my-plugin.json',
  *     ) );
  *
  *     if ( $licensing->is_valid() ) { ... }
+ *
+ * The full list of options is on register() below, and in the README.
  *
  * @package PolarWP\Licensing
  */

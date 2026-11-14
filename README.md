@@ -244,6 +244,18 @@ If two plugins on one site bundle different versions of this library, whichever 
 | 404 / 403 / 422 (unknown key, activation removed in portal) | `invalid` | false |
 | Network error, 429, 5xx | unchanged | unchanged, until the grace period runs out |
 
+## Known limitations
+
+This is an early release (0.x). These aren't supported yet:
+
+- **Multisite networks.** Each site in a network keeps its own license, and there's no network-wide license screen.
+- **Cleanup when your plugin is deleted.** Deactivating your plugin removes the scheduled check, but the stored license and cached manifest stay in the database. To remove them, delete the `polarwp_license_<slug>` option (and `polarwp_license_<slug>_sandbox`) from your own `uninstall.php`.
+- **Several License Keys benefits per plugin.** `benefit_id` accepts one benefit. If you sell tiers (for example Personal and Agency), attach the same License Keys benefit to every tier's product, or leave `benefit_id` out.
+- **Gating features by tier.** `is_valid()` tells you whether a license is valid, not which product it came from.
+- **Sites that block outbound HTTPS.** Activation and checks need to reach `api.polar.sh` (or `sandbox-api.polar.sh`). If they can't, a valid license still works for the grace period.
+
+Found a problem or need one of these? [Open an issue](https://github.com/mstonedev/polar-wp-licensing/issues).
+
 ## Running the tests
 
 ```bash
@@ -255,6 +267,10 @@ The scenario tests run the real `License`, `Updater` and live/sandbox switching 
 ## Requirements
 
 PHP 7.4+, WordPress 5.5+.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
