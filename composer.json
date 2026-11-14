@@ -1,5 +1,5 @@
 {
-    "name": "polarwp/licensing",
+    "name": "mstonedev/polar-wp-licensing",
     "description": "Sell WordPress plugins with Polar.sh license keys: activation, background checks and licensed updates.",
     "type": "library",
     "license": "GPL-2.0-or-later",

@@ -1,5 +1,7 @@
 # Polar WP Licensing
 
+> **Unofficial.** This is an independent open-source project. It is not affiliated with, endorsed by or supported by Polar.
+
 Sell premium WordPress plugins with [Polar](https://polar.sh) license keys. You bundle this library in your plugin, and it handles:
 
 - **Activation.** Customers paste their key into a license screen. Keys with an activation limit use up one seat per site.
@@ -97,6 +99,18 @@ If two plugins on one site bundle different versions of this library, whichever 
 | 404 / 403 / 422 (unknown key, activation removed in portal) | `invalid` | false |
 | Network error, 429, 5xx | unchanged | unchanged, until the grace period runs out |
 
+## Running the tests
+
+```bash
+php tests/run.php
+```
+
+The scenario tests run the real `License` and `Updater` classes against stubbed WordPress functions and fake Polar responses, so they need nothing but PHP 8.1+. GitHub Actions runs them on every push, and also checks that the library still parses on PHP 7.4.
+
 ## Requirements
 
-PHP 7.4+, WordPress 5.5+. License: GPL-2.0-or-later.
+PHP 7.4+, WordPress 5.5+.
+
+## License
+
+GPL-2.0-or-later. See [LICENSE](LICENSE).

@@ -1,0 +1,43 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # The library promises PHP 7.4 support, so make sure it still parses there.
+  lint-php74:
+    name: Lint (PHP 7.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+      - name: Lint library and examples
+        run: |
+          for f in polar-wp-licensing.php $(find src examples -name '*.php'); do
+            php -l "$f"
+          done
+
+  tests:
+    name: Tests (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Lint
+        run: |
+          for f in polar-wp-licensing.php $(find src examples tests -name '*.php'); do
+            php -l "$f"
+          done
+      - name: Run scenario tests
+        run: php tests/run.php
